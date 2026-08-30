@@ -1,0 +1,9 @@
+local sprays = workspace:WaitForChild("Sprays")
+
+while task.wait(1) do
+    local list = sprays:GetChildren()
+
+    for i = 2, #list do
+        list[i]:Destroy()
+    end
+end
