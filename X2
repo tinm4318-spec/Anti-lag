@@ -1,326 +1,990 @@
--- ----------------------------------------------------
--- Fіlе Dеоbfusсatеԁ Uѕіng LеаκD
--- https://leakd.fr
--- ----------------------------------------------------
+-- StarHubUI v6.6.0 — Clean Build
+-- No IP logger, no webhook, no geo collection, no Enlighten module.
+-- The only outbound URL is the optional default logo, configurable below.
 
-local players = game:GetService("Players")
-local replicatedStorage = game:GetService("ReplicatedStorage")
-local runService = game:GetService("RunService")
-local textChatService = game:GetService("TextChatService")
-local botOwner = getgenv().BotOwner or "NoOwner"
-local v1 = botOwner
-local map = { "?", "!", ".", ";", "$" }
-local localPlayer = players.LocalPlayer
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local SoundService = game:GetService("SoundService")
+local HttpService = game:GetService("HttpService")
+local LocalPlayer = Players.LocalPlayer
 
-local function f1(text)
-  if not text or text == "" then
-    return nil
-  end
-
-  for _, value in pairs(players:GetPlayers()) do
-    if value.Name:lower():sub(1, #text) == text:lower()
-      or value.DisplayName:lower():sub(1, #text) == text:lower() then
-      return value
+local function LoadCustomImage(urlOrAsset, defaultAsset)
+    defaultAsset = defaultAsset or "rbxassetid://10709819149"
+    if not urlOrAsset or urlOrAsset == "" then return defaultAsset end
+    local assetNum = urlOrAsset:match("%d+")
+    if urlOrAsset:find("roblox%.com") and assetNum then
+        return "rbxassetid://" .. assetNum
     end
-  end
-
-  return nil
-end
-
-local function f2()
-  local leaderstats = localPlayer:FindFirstChild("leaderstats")
-
-  if leaderstats then
-    local v2 = leaderstats:FindFirstChild("Time") or leaderstats:FindFirstChild("Minutes")
-      or leaderstats:FindFirstChild("Seconds")
-
-    return v2 and v2.Value or 0
-  end
-
-  return 0
-end
-
-local v3 = { Follow = nil, Attack = nil, AutoDono = nil }
-
-local function f3(joined)
-  local findFirstChild = replicatedStorage:FindFirstChild("SayMessageRequest", true)
-
-  if findFirstChild then
-    findFirstChild:FireServer(joined, "All")
-  elseif textChatService.ChatVersion == Enum.ChatVersion.TextChatService then
-    textChatService.TextChannels.RBXGeneral:SendAsync(joined)
-  end
-end
-
-local function f4(key)
-  if v3[key] then
-    if typeof(v3[key]) == "RBXScriptConnection" then
-      v3[key]:Disconnect()
-    elseif typeof(v3[key]) == "thread" then
-      task.cancel(v3[key])
+    if string.find(urlOrAsset, "^rbxassetid://") or tonumber(urlOrAsset) then
+        return tonumber(urlOrAsset) and ("rbxassetid://" .. urlOrAsset) or urlOrAsset
     end
-
-    v3[key] = nil
-  end
-end
-
-local function f5()
-  f4("Follow")
-  f4("Attack")
-  f4("AutoDono")
-
-  if localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") then
-    local humanoidRootPart = localPlayer.Character.HumanoidRootPart
-
-    for _, value2 in pairs(humanoidRootPart:GetChildren()) do
-      if value2.Name == "FlingVelocity" then
-        value2:Destroy()
-      end
-    end
-
-    humanoidRootPart.Velocity = Vector3.new(0, 0, 0)
-    humanoidRootPart.RotVelocity = Vector3.new(0, 0, 0)
-  end
-end
-
-local function makeBodyAngularVelocity(p1, p2)
-  f4("Follow")
-  f4("Attack")
-
-  if not localPlayer.Character or not localPlayer.Character:FindFirstChild("HumanoidRootPart") then
-    return
-  end
-
-  local humanoidRootPart2 = localPlayer.Character.HumanoidRootPart
-
-  local flingVelocity = Instance.new("BodyAngularVelocity")
-  flingVelocity.Name = "FlingVelocity"
-  flingVelocity.AngularVelocity = Vector3.new(0, 99999, 0)
-  flingVelocity.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
-  flingVelocity.P = math.huge
-  flingVelocity.Parent = humanoidRootPart2
-
-  v3.Attack = runService.Heartbeat:Connect(function()
-    if not p1 or not p1.Character or not localPlayer.Character then
-      return
-    end
-
-    local humanoidRootPart3 = p1.Character:FindFirstChild("HumanoidRootPart")
-    local character = p1.Character
-    local v4 = not humanoidRootPart3
-    local humanoid = character:FindFirstChild("Humanoid")
-
-    if v4 or not humanoid then
-      return
-    end
-
-    if humanoid.Health <= 0 then
-      if not p2 then
-        f4("Attack")
-
-        if flingVelocity then
-          flingVelocity:Destroy()
+    if string.find(urlOrAsset, "^http") and writefile and isfile then
+        local safeName = "starhub_custom_logo_" .. tostring(math.abs(urlOrAsset:len() * 37 + (urlOrAsset:byte(1) or 0) * 17)) .. ".png"
+        pcall(function()
+            if not isfile(safeName) then
+                local res = game:HttpGet(urlOrAsset)
+                if res and #res > 100 then writefile(safeName, res) end
+            end
+        end)
+        if isfile and isfile(safeName) then
+            if getcustomasset then return getcustomasset(safeName)
+            elseif getsynasset then return getsynasset(safeName) end
         end
-
-        f3("Target eliminated.")
-      end
-
-      return
     end
-
-    humanoidRootPart2.CFrame = humanoidRootPart3.CFrame
-    humanoidRootPart2.Velocity = Vector3.new(0, 0, 0)
-  end)
+    return urlOrAsset
 end
 
-local function f6(message)
-  local flag = false
-  local sub = ""
+local StarHubUI = {
+    Version = "6.6.0",
+    Settings = {
+        AutoSaveEnabled = true,
+        SoundEnabled = true,
+        SoundVolume = 0.55,
+        SoundTheme = "Apple iOS Bubble",
+        WindowTransparency = 0,
+        AcrylicEnabled = true,
+        ShowFloatingToggle = true,
+        ControlsPosition = "Left",
+        KeybindMode = "Toggle",
+        ToggleKey = "RightControl",
+        CurrentTheme = "NeverloseCrimson",
+        AccentStyle = "Gradient",
+        CustomColor1 = "",
+        CustomColor2 = "",
+        WallpaperTransparency = 0.92,
+        WallpaperDimming = 0.35,
+        BackgroundEffect = "Floating Bubbles",
+        CustomWallpaperId = "",
+        CustomLogoUrl = ""
+    },
+    Themes = {
+        NeverloseCrimson = { Name = "Neverlose Crimson", Grad1 = Color3.fromRGB(235, 55, 75), Grad2 = Color3.fromRGB(255, 110, 80), Accent = Color3.fromRGB(235, 55, 75), AccentLight = Color3.fromRGB(255, 110, 130), Background = Color3.fromRGB(13, 14, 18), Sidebar = Color3.fromRGB(10, 11, 14), Box = Color3.fromRGB(18, 19, 25), SubBox = Color3.fromRGB(24, 26, 34), Border = Color3.fromRGB(36, 35, 46), BorderLight = Color3.fromRGB(58, 52, 68), TextTitle = Color3.fromRGB(255, 255, 255), TextBody = Color3.fromRGB(220, 218, 228), TextDim = Color3.fromRGB(140, 136, 150), TextMuted = Color3.fromRGB(90, 85, 98), Success = Color3.fromRGB(34, 197, 94), Danger = Color3.fromRGB(235, 55, 75) },
+        StarHubGold = { Name = "StarHub Gold", Grad1 = Color3.fromRGB(245, 158, 11), Grad2 = Color3.fromRGB(251, 191, 36), Accent = Color3.fromRGB(245, 158, 11), AccentLight = Color3.fromRGB(251, 191, 36), Background = Color3.fromRGB(14, 13, 10), Sidebar = Color3.fromRGB(11, 10, 8), Box = Color3.fromRGB(21, 19, 15), SubBox = Color3.fromRGB(28, 25, 19), Border = Color3.fromRGB(44, 39, 30), BorderLight = Color3.fromRGB(64, 56, 42), TextTitle = Color3.fromRGB(255, 255, 255), TextBody = Color3.fromRGB(230, 225, 212), TextDim = Color3.fromRGB(145, 138, 125), TextMuted = Color3.fromRGB(95, 88, 78), Success = Color3.fromRGB(16, 185, 129), Danger = Color3.fromRGB(239, 68, 68) },
+        CyberCyan = { Name = "Cyber Cyan", Grad1 = Color3.fromRGB(6, 182, 212), Grad2 = Color3.fromRGB(139, 92, 246), Accent = Color3.fromRGB(6, 182, 212), AccentLight = Color3.fromRGB(56, 189, 248), Background = Color3.fromRGB(10, 13, 18), Sidebar = Color3.fromRGB(8, 10, 14), Box = Color3.fromRGB(16, 21, 30), SubBox = Color3.fromRGB(22, 28, 40), Border = Color3.fromRGB(32, 42, 60), BorderLight = Color3.fromRGB(48, 68, 96), TextTitle = Color3.fromRGB(250, 252, 255), TextBody = Color3.fromRGB(215, 225, 238), TextDim = Color3.fromRGB(130, 145, 170), TextMuted = Color3.fromRGB(80, 95, 115), Success = Color3.fromRGB(34, 197, 94), Danger = Color3.fromRGB(239, 68, 68) },
+        MatrixEmerald = { Name = "Matrix Emerald", Grad1 = Color3.fromRGB(16, 185, 129), Grad2 = Color3.fromRGB(52, 211, 153), Accent = Color3.fromRGB(16, 185, 129), AccentLight = Color3.fromRGB(52, 211, 153), Background = Color3.fromRGB(10, 14, 12), Sidebar = Color3.fromRGB(8, 11, 10), Box = Color3.fromRGB(16, 22, 19), SubBox = Color3.fromRGB(22, 30, 26), Border = Color3.fromRGB(28, 44, 36), BorderLight = Color3.fromRGB(44, 68, 54), TextTitle = Color3.fromRGB(245, 255, 250), TextBody = Color3.fromRGB(210, 230, 220), TextDim = Color3.fromRGB(120, 145, 130), TextMuted = Color3.fromRGB(75, 95, 85), Success = Color3.fromRGB(16, 185, 129), Danger = Color3.fromRGB(239, 68, 68) },
+        ObsidianViolet = { Name = "Obsidian Violet", Grad1 = Color3.fromRGB(124, 58, 237), Grad2 = Color3.fromRGB(192, 132, 252), Accent = Color3.fromRGB(124, 58, 237), AccentLight = Color3.fromRGB(144, 97, 249), Background = Color3.fromRGB(12, 14, 19), Sidebar = Color3.fromRGB(9, 10, 14), Box = Color3.fromRGB(18, 20, 28), SubBox = Color3.fromRGB(24, 27, 38), Border = Color3.fromRGB(34, 38, 52), BorderLight = Color3.fromRGB(52, 60, 80), TextTitle = Color3.fromRGB(255, 255, 255), TextBody = Color3.fromRGB(215, 218, 230), TextDim = Color3.fromRGB(125, 130, 150), TextMuted = Color3.fromRGB(80, 85, 102), Success = Color3.fromRGB(16, 185, 129), Danger = Color3.fromRGB(239, 68, 68) },
+        SakuraBlossom = { Name = "Sakura Blossom", Grad1 = Color3.fromRGB(244, 63, 94), Grad2 = Color3.fromRGB(251, 113, 133), Accent = Color3.fromRGB(244, 63, 94), AccentLight = Color3.fromRGB(251, 113, 133), Background = Color3.fromRGB(18, 12, 16), Sidebar = Color3.fromRGB(14, 9, 12), Box = Color3.fromRGB(26, 18, 23), SubBox = Color3.fromRGB(34, 24, 30), Border = Color3.fromRGB(52, 34, 44), BorderLight = Color3.fromRGB(78, 48, 64), TextTitle = Color3.fromRGB(255, 250, 252), TextBody = Color3.fromRGB(235, 215, 225), TextDim = Color3.fromRGB(155, 130, 142), TextMuted = Color3.fromRGB(105, 80, 92), Success = Color3.fromRGB(34, 197, 94), Danger = Color3.fromRGB(239, 68, 68) },
+        GlacierIce = { Name = "Glacier Ice", Grad1 = Color3.fromRGB(2, 132, 199), Grad2 = Color3.fromRGB(56, 189, 248), Accent = Color3.fromRGB(2, 132, 199), AccentLight = Color3.fromRGB(56, 189, 248), Background = Color3.fromRGB(10, 14, 20), Sidebar = Color3.fromRGB(8, 11, 16), Box = Color3.fromRGB(15, 22, 32), SubBox = Color3.fromRGB(20, 30, 44), Border = Color3.fromRGB(30, 48, 70), BorderLight = Color3.fromRGB(45, 75, 110), TextTitle = Color3.fromRGB(245, 252, 255), TextBody = Color3.fromRGB(210, 230, 245), TextDim = Color3.fromRGB(130, 150, 175), TextMuted = Color3.fromRGB(80, 100, 125), Success = Color3.fromRGB(34, 197, 94), Danger = Color3.fromRGB(239, 68, 68) },
+        SunsetFlame = { Name = "Sunset Flame", Grad1 = Color3.fromRGB(234, 88, 12), Grad2 = Color3.fromRGB(245, 158, 11), Accent = Color3.fromRGB(234, 88, 12), AccentLight = Color3.fromRGB(251, 146, 60), Background = Color3.fromRGB(16, 12, 10), Sidebar = Color3.fromRGB(13, 9, 8), Box = Color3.fromRGB(24, 18, 14), SubBox = Color3.fromRGB(32, 24, 18), Border = Color3.fromRGB(50, 36, 26), BorderLight = Color3.fromRGB(75, 52, 36), TextTitle = Color3.fromRGB(255, 250, 245), TextBody = Color3.fromRGB(235, 220, 210), TextDim = Color3.fromRGB(155, 135, 125), TextMuted = Color3.fromRGB(105, 85, 75), Success = Color3.fromRGB(34, 197, 94), Danger = Color3.fromRGB(239, 68, 68) },
+        ElectricLime = { Name = "Electric Lime", Grad1 = Color3.fromRGB(132, 204, 22), Grad2 = Color3.fromRGB(163, 230, 53), Accent = Color3.fromRGB(132, 204, 22), AccentLight = Color3.fromRGB(163, 230, 53), Background = Color3.fromRGB(11, 14, 10), Sidebar = Color3.fromRGB(9, 11, 8), Box = Color3.fromRGB(17, 22, 15), SubBox = Color3.fromRGB(23, 30, 20), Border = Color3.fromRGB(36, 48, 30), BorderLight = Color3.fromRGB(54, 72, 44), TextTitle = Color3.fromRGB(250, 255, 245), TextBody = Color3.fromRGB(220, 235, 215), TextDim = Color3.fromRGB(135, 150, 130), TextMuted = Color3.fromRGB(85, 100, 80), Success = Color3.fromRGB(132, 204, 22), Danger = Color3.fromRGB(239, 68, 68) },
+        MidnightStealth = { Name = "Midnight Stealth", Grad1 = Color3.fromRGB(148, 163, 184), Grad2 = Color3.fromRGB(203, 213, 225), Accent = Color3.fromRGB(148, 163, 184), AccentLight = Color3.fromRGB(226, 232, 240), Background = Color3.fromRGB(11, 12, 14), Sidebar = Color3.fromRGB(9, 9, 11), Box = Color3.fromRGB(17, 18, 22), SubBox = Color3.fromRGB(23, 24, 30), Border = Color3.fromRGB(34, 36, 44), BorderLight = Color3.fromRGB(52, 55, 66), TextTitle = Color3.fromRGB(255, 255, 255), TextBody = Color3.fromRGB(220, 222, 228), TextDim = Color3.fromRGB(135, 140, 150), TextMuted = Color3.fromRGB(85, 90, 100), Success = Color3.fromRGB(34, 197, 94), Danger = Color3.fromRGB(239, 68, 68) }
+    },
+    Icons = { Logo = "rbxassetid://10709819149", Search = "rbxassetid://10734943674", Close = "rbxassetid://10747384394", Minimize = "rbxassetid://10709791185", Settings = "rbxassetid://10734950309", ChevronDown = "rbxassetid://10709790948", Palette = "rbxassetid://10734910430", Save = "rbxassetid://10734941499", Skull = "rbxassetid://10734962068", Dashboard = "rbxassetid://10709752035", Combat = "rbxassetid://10709818534", Visuals = "rbxassetid://10747375132", Teleport = "rbxassetid://10723404337", Refresh = "rbxassetid://10734933222", Server = "rbxassetid://10734963400", Copy = "rbxassetid://10709812159", Sound = "rbxassetid://10709810814", SoundMute = "rbxassetid://10709810619", Bell = "rbxassetid://10709752996", Info = "rbxassetid://10709752996", Check = "rbxassetid://10709790644", Zap = "rbxassetid://10709791882" }
+}
 
-  for _, value3 in pairs(map) do
-    if message:sub(1, 1) == value3 then
-      flag = true
-      sub = message:sub(2)
-      break
-    end
-  end
+local Theme = StarHubUI.Themes[StarHubUI.Settings.CurrentTheme] or StarHubUI.Themes.NeverloseCrimson
+local ThemeRegistry = { Gradients = {}, Accents = {}, Backgrounds = {}, Sidebars = {}, Boxes = {}, SubBoxes = {}, Borders = {}, ModeSelectors = {} }
 
-  if not flag then
-    return
-  end
+local function RegisterElement(category, obj)
+    if ThemeRegistry[category] then table.insert(ThemeRegistry[category], obj) end
+end
 
-  local split = sub:split(" ")
-  local lower = split[1]:lower()
-  local v5, lower2, lower3, findFirstChild2
+local function ApplyGradient(parentObj, color1, color2, rotation)
+    if parentObj:IsA("TextLabel") or parentObj:IsA("TextButton") then parentObj.TextColor3 = Color3.new(1, 1, 1) end
+    local isSolid = (StarHubUI.Settings.AccentStyle == "Solid")
+    color1 = color1 or Theme.Grad1
+    color2 = isSolid and color1 or (color2 or Theme.Grad2)
+    local grad = parentObj:FindFirstChildOfClass("UIGradient") or Instance.new("UIGradient", parentObj)
+    grad.Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, color1), ColorSequenceKeypoint.new(1, color2) })
+    grad.Rotation = rotation or 0
+    RegisterElement("Gradients", grad)
+    return grad
+end
 
-  if lower == "summon" then
-    f4("Follow")
-    f4("Attack")
-
-    findFirstChild2 = players:FindFirstChild(botOwner)
-
-    if findFirstChild2 then
-      f3("Hovering behind you.")
-
-      v3.Follow = runService.Heartbeat:Connect(function()
-        if findFirstChild2.Character
-          and findFirstChild2.Character:FindFirstChild("HumanoidRootPart")
-          and localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") then
-          localPlayer.Character.HumanoidRootPart.CFrame = findFirstChild2.Character.HumanoidRootPart.CFrame
-            * CFrame.new(0, 4, 3)
-
--- https://leakd.fr
-          localPlayer.Character.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+local function UpdateLiveTheme()
+    local isSolid = (StarHubUI.Settings.AccentStyle == "Solid")
+    local c1 = Theme.Grad1 or Theme.Accent
+    local c2 = isSolid and c1 or (Theme.Grad2 or Theme.AccentLight)
+    for _, g in ipairs(ThemeRegistry.Gradients) do
+        if g and g.Parent then
+            if g.Name == "ChasingRingGrad" then
+                g.Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, c1), ColorSequenceKeypoint.new(0.5, c2), ColorSequenceKeypoint.new(1, c1) })
+            else
+                g.Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, c1), ColorSequenceKeypoint.new(1, c2) })
+            end
+            if g.Parent:IsA("TextLabel") or g.Parent:IsA("TextButton") then g.Parent.TextColor3 = Color3.new(1, 1, 1) end
         end
-      end)
     end
-  elseif lower == "void" then
-    f4("Follow")
-    f4("Attack")
-
-    if localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") then
-      f3("Entering the void.")
-      localPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(0, 5000, 0)
-      task.wait(0.5)
-      localPlayer.Character.HumanoidRootPart.Anchored = true
-    end
-  elseif lower == "stop" then
-    f5()
-
-    if localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") then
-      localPlayer.Character.HumanoidRootPart.Anchored = false
-    end
-
-    f3("All operations stopped.")
-  elseif lower == "dono" then
-    local v6 = split[2]
-
-    local lower4 = v6
-    lower4 = v6 and split[2]:lower()
-
-    local v7 = split[3]
-
-    local lower5 = v7
-    lower5 = v7 or botOwner:sub(1, 4):lower()
-
-    local v8 = (lower4 == "all" or not tonumber(lower4)) and f2() or tonumber(lower4)
-    f3("donate " .. lower5 .. " " .. math.floor(v8))
-  elseif lower == "donoa" then
-    f4("AutoDono")
-    f3("Auto-donating activated.")
-    lower2 = split[2] and split[2]:lower()
-    lower3 = split[3] or botOwner:sub(1, 4):lower()
-
-    v3.AutoDono = task.spawn(function()
-      while task.wait(5) do
-        local v9 = (lower2 == "all" or not tonumber(lower2)) and f2() or tonumber(lower2)
-
-        if v9 > 0 then
-          f3("donate " .. lower3 .. " " .. math.floor(v9))
+    for _, item in ipairs(ThemeRegistry.Accents) do
+        if item and item.Parent then
+            if item:IsA("UIStroke") then item.Color = Theme.Accent
+            elseif item:IsA("ImageLabel") or item:IsA("ImageButton") then item.ImageColor3 = Theme.AccentLight
+            elseif item:IsA("TextLabel") or item:IsA("TextButton") then
+                if item:FindFirstChildOfClass("UIGradient") then item.TextColor3 = Color3.new(1, 1, 1) else item.TextColor3 = Theme.AccentLight end
+            elseif item:IsA("Frame") then item.BackgroundColor3 = Theme.Accent end
         end
-      end
+    end
+    for _, bg in ipairs(ThemeRegistry.Backgrounds) do if bg and bg.Parent then bg.BackgroundColor3 = Theme.Background end end
+    for _, sb in ipairs(ThemeRegistry.Sidebars) do if sb and sb.Parent then sb.BackgroundColor3 = Theme.Sidebar end end
+    for _, bx in ipairs(ThemeRegistry.Boxes) do if bx and bx.Parent then bx.BackgroundColor3 = Theme.Box end end
+    for _, sb in ipairs(ThemeRegistry.SubBoxes) do if sb and sb.Parent then sb.BackgroundColor3 = Theme.SubBox end end
+    for _, st in ipairs(ThemeRegistry.Borders) do
+        if st and st.Parent then
+            if st:IsA("UIStroke") then st.Color = Theme.Border elseif st:IsA("Frame") then st.BackgroundColor3 = Theme.Border end
+        end
+    end
+    for _, fn in ipairs(ThemeRegistry.ModeSelectors) do pcall(fn) end
+end
+
+local function Tween(obj, duration, props, style, dir)
+    local tw = TweenService:Create(obj, TweenInfo.new(duration, style or Enum.EasingStyle.Quart, dir or Enum.EasingDirection.Out), props)
+    tw:Play()
+    return tw
+end
+
+local function MicroBounce(obj)
+    local s = obj:FindFirstChildOfClass("UIScale") or Instance.new("UIScale", obj)
+    Tween(s, 0.08, { Scale = 0.94 }, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+    task.delay(0.08, function() Tween(s, 0.2, { Scale = 1 }, Enum.EasingStyle.Back, Enum.EasingDirection.Out) end)
+end
+
+local BubbleSoundMap = {
+    Click = { id = "rbxassetid://6895079853", pitch = 1.10, vol = 0.32 },
+    ToggleOn = { id = "rbxassetid://6895079853", pitch = 1.40, vol = 0.35 },
+    ToggleOff = { id = "rbxassetid://6895079853", pitch = 0.88, vol = 0.28 },
+    TabSwitch = { id = "rbxassetid://6895079853", pitch = 1.25, vol = 0.30 },
+    Dropdown = { id = "rbxassetid://6895079853", pitch = 1.00, vol = 0.30 },
+    Notify = { id = "rbxassetid://4590662766", pitch = 1.35, vol = 0.38 }
+}
+
+local function PlaySound(name)
+    if not StarHubUI.Settings.SoundEnabled then return end
+    local conf = BubbleSoundMap[name] or BubbleSoundMap.Click
+    pcall(function()
+        local s = Instance.new("Sound")
+        s.SoundId = conf.id
+        s.Volume = conf.vol * (StarHubUI.Settings.SoundVolume or 0.55)
+        s.PlaybackSpeed = conf.pitch
+        s.Parent = SoundService
+        s.Ended:Connect(function() s:Destroy() end)
+        task.delay(1.5, function() if s and s.Parent then s:Destroy() end end)
+        s:Play()
     end)
-  elseif lower == "attack" then
-    local v10 = f1(split[2])
+end
 
-    if v10 then
-      f3("Engaging " .. v10.Name)
-      makeBodyAngularVelocity(v10, false)
-    end
-  elseif lower == "loopattack" then
-    local v11 = f1(split[2])
+local function GetSafeGuiParent()
+    local ok, parent = pcall(function() return CoreGui end)
+    if ok and parent then return parent end
+    local ok2, pg = pcall(function() return LocalPlayer:WaitForChild("PlayerGui", 5) end)
+    if ok2 and pg then return pg end
+    return game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+end
 
-    if v11 then
-      f3("Locking onto " .. v11.Name .. " forever.")
-      makeBodyAngularVelocity(v11, true)
-    end
-  elseif lower == "grief" then
-    local delete = localPlayer.Backpack:FindFirstChild("Delete")
-      or localPlayer.Character and localPlayer.Character:FindFirstChild("Delete")
+local function ColorToHex(col)
+    if typeof(col) ~= "Color3" then return "#ffffff" end
+    return string.format("#%02x%02x%02x", math.clamp(math.floor(col.R * 255 + 0.5), 0, 255), math.clamp(math.floor(col.G * 255 + 0.5), 0, 255), math.clamp(math.floor(col.B * 255 + 0.5), 0, 255))
+end
 
-    if delete then
-      localPlayer.Character.Humanoid:EquipTool(delete)
-      task.wait(0.1)
+local function HexToColor(hex)
+    if not hex then return nil end
+    local s = string.gsub(string.gsub(tostring(hex), "#", ""), "%s+", "")
+    if #s ~= 6 then return nil end
+    local r, g, b = tonumber(s:sub(1, 2), 16), tonumber(s:sub(3, 4), 16), tonumber(s:sub(5, 6), 16)
+    if not r or not g or not b then return nil end
+    return Color3.fromRGB(r, g, b)
+end
 
-      for _, value4 in pairs(workspace:GetPartBoundsInRadius(
-        localPlayer.Character.HumanoidRootPart.Position, 25
-      )) do
-        if value4:IsA("BasePart") and not value4:IsDescendantOf(players) then
-          local remoteEvent = delete:FindFirstChildOfClass("RemoteEvent")
+local ConfigFileName = "StarHubUI_Config.json"
+local autoSaveDebounce = nil
 
-          local remote = remoteEvent
-          remote = remoteEvent or delete:FindFirstChild("Remote")
-
-          if remote then
-            remote:FireServer(value4)
-          end
+function StarHubUI:SaveConfig()
+    pcall(function()
+        if writefile then
+            local data = {}
+            for k, v in pairs(StarHubUI.Settings) do data[k] = v end
+            writefile(ConfigFileName, HttpService:JSONEncode(data))
         end
-      end
-    end
-  elseif lower == "transfer" then
-    local v12 = f1(split[2])
+    end)
+end
 
-    if v12 then
-      botOwner = v12.Name
-      f3("Control given to: " .. split[2])
-    end
-  elseif lower == "ctransfer" then
-    botOwner = v1
-    f3("Control returned.")
-  elseif lower == "blacklist" then
-    local findFirstChild3 = players:FindFirstChild(botOwner)
-
-    if not (findFirstChild3
-      and (findFirstChild3.Backpack:FindFirstChild("Arkenstone")
-        or findFirstChild3.Character and findFirstChild3.Character:FindFirstChild("Arkenstone"))) then
-      return
-    end
-
-    v5 = f1(split[2])
-
-    if v5 then
-      f3("Blacklisting shorthand: " .. split[2])
-      local remotes = replicatedStorage:FindFirstChild("Remotes") or replicatedStorage
-
-      for _, value5 in pairs({ "freeze", "mute", "clearinv", "blind", "glitch" }) do
-        local findFirstChild4 = remotes:FindFirstChild(value5)
-
-        if findFirstChild4 then
-          pcall(function() findFirstChild4:FireServer(v5) end)
+function StarHubUI:LoadConfig()
+    pcall(function()
+        if isfile and readfile and isfile(ConfigFileName) then
+            local raw = readfile(ConfigFileName)
+            if raw and raw ~= "" then
+                local data = HttpService:JSONDecode(raw)
+                if typeof(data) == "table" then
+                    for k, v in pairs(data) do
+                        if StarHubUI.Settings[k] ~= nil then StarHubUI.Settings[k] = v end
+                    end
+                    if StarHubUI.Themes[StarHubUI.Settings.CurrentTheme] then
+                        Theme = StarHubUI.Themes[StarHubUI.Settings.CurrentTheme]
+                    end
+                end
+            end
         end
-      end
-    end
-  elseif lower == "whitelist" then
-    f3(split[2] .. " whitelisted.")
-  elseif lower == "say" then
-    local joined2 = table.concat(split, " ", 2)
-
-    if joined2 ~= "" then
-      f3(joined2)
-    end
-  elseif lower == "reset" then
-    f5()
-
-    if localPlayer.Character then
-      localPlayer.Character:BreakJoints()
-    end
-
-    f3("Resetting.")
-  end
+    end)
 end
 
-local function f7(p3)
-  p3.Chatted:Connect(function(message2)
-    if p3.Name == botOwner then
-      f6(message2)
+function StarHubUI:AutoSave()
+    if StarHubUI.Settings.AutoSaveEnabled == false then return end
+    if autoSaveDebounce then task.cancel(autoSaveDebounce) end
+    autoSaveDebounce = task.delay(0.35, function()
+        StarHubUI:SaveConfig()
+        autoSaveDebounce = nil
+    end)
+end
+
+StarHubUI:LoadConfig()
+
+local ActiveDiscordNotification = nil
+
+function StarHubUI:Notify(cfg)
+    cfg = cfg or {}
+    local title = cfg.Title or "NOTIFICATION"
+    local desc = cfg.Content or cfg.Description or ""
+    local duration = cfg.Duration or 3.5
+    local iconId = cfg.Icon or StarHubUI.Icons.Bell
+    local badgeText = cfg.Badge or "INFO"
+    local badgeCol = cfg.BadgeColor or (badgeText == "COPIED" and Color3.fromRGB(34, 197, 94) or Theme.AccentLight)
+
+    PlaySound("Notify")
+
+    if ActiveDiscordNotification and ActiveDiscordNotification.Parent then
+        pcall(function() ActiveDiscordNotification:Destroy() end)
+        ActiveDiscordNotification = nil
     end
-  end)
+
+    local targetParent = (StarHubUI.CurrentMainWindow and StarHubUI.CurrentMainWindow.Parent and StarHubUI.CurrentMainWindow.Visible) and StarHubUI.CurrentMainWindow or (GetSafeGuiParent():FindFirstChild("StarHubUI_Host") or GetSafeGuiParent())
+    if not targetParent then return end
+
+    local modal = Instance.new("Frame", targetParent)
+    modal.Name = "DiscordNotificationModal"
+    modal.AnchorPoint = Vector2.new(0.5, 0)
+    modal.Size = UDim2.new(0, 390, 0, 58)
+    modal.BackgroundColor3 = Color3.fromRGB(18, 16, 26)
+    modal.BackgroundTransparency = 0.05
+    modal.ZIndex = 5000
+    modal.ClipsDescendants = true
+    Instance.new("UICorner", modal).CornerRadius = UDim.new(0, 14)
+
+    local mStroke = Instance.new("UIStroke", modal)
+    mStroke.Thickness = 1.4
+    mStroke.Color = Theme.BorderLight
+    ApplyGradient(mStroke, Theme.Grad1, Theme.Grad2, 45)
+
+    local icBadge = Instance.new("Frame", modal)
+    icBadge.Size = UDim2.new(0, 36, 0, 36)
+    icBadge.Position = UDim2.new(0, 12, 0.5, -18)
+    icBadge.BackgroundColor3 = Theme.SubBox
+    icBadge.BackgroundTransparency = 0.2
+    icBadge.BorderSizePixel = 0
+    icBadge.ZIndex = 5001
+    Instance.new("UICorner", icBadge).CornerRadius = UDim.new(0, 10)
+
+    local icImg = Instance.new("ImageLabel", icBadge)
+    icImg.Size = UDim2.new(0, 20, 0, 20)
+    icImg.Position = UDim2.new(0.5, -10, 0.5, -10)
+    icImg.BackgroundTransparency = 1
+    icImg.Image = tostring(iconId)
+    icImg.ImageColor3 = Theme.AccentLight
+    icImg.ZIndex = 5002
+    RegisterElement("Accents", icImg)
+
+    local tL = Instance.new("TextLabel", modal)
+    tL.Size = UDim2.new(1, -145, 0, 16)
+    tL.Position = UDim2.new(0, 58, 0, 11)
+    tL.BackgroundTransparency = 1
+    tL.Font = Enum.Font.GothamBold
+    tL.TextSize = 11
+    tL.TextColor3 = Theme.TextTitle
+    tL.TextXAlignment = Enum.TextXAlignment.Left
+    tL.Text = string.upper(title)
+    tL.ZIndex = 5001
+
+    local sL = Instance.new("TextLabel", modal)
+    sL.Size = UDim2.new(1, -145, 0, 16)
+    sL.Position = UDim2.new(0, 58, 0, 29)
+    sL.BackgroundTransparency = 1
+    sL.Font = Enum.Font.GothamMedium
+    sL.TextSize = 9.5
+    sL.TextColor3 = Theme.AccentLight
+    sL.TextXAlignment = Enum.TextXAlignment.Left
+    sL.Text = desc
+    sL.ZIndex = 5001
+    RegisterElement("Accents", sL)
+
+    local tag = Instance.new("Frame", modal)
+    tag.Size = UDim2.new(0, 64, 0, 22)
+    tag.Position = UDim2.new(1, -76, 0.5, -11)
+    tag.BackgroundColor3 = badgeCol
+    tag.BackgroundTransparency = 0.82
+    tag.ZIndex = 5001
+    Instance.new("UICorner", tag).CornerRadius = UDim.new(1, 0)
+
+    local tagText = Instance.new("TextLabel", tag)
+    tagText.Size = UDim2.new(1, 0, 1, 0)
+    tagText.BackgroundTransparency = 1
+    tagText.Font = Enum.Font.GothamBold
+    tagText.TextSize = 8.5
+    tagText.TextColor3 = badgeCol
+    tagText.Text = string.upper(badgeText)
+    tagText.ZIndex = 5002
+
+    ActiveDiscordNotification = modal
+    modal.Position = UDim2.new(0.5, 0, 0, -75)
+    Tween(modal, 0.35, { Position = UDim2.new(0.5, 0, 0, -36) }, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+
+    local isDismissed = false
+    local function Dismiss()
+        if isDismissed then return end
+        isDismissed = true
+        local tw = Tween(modal, 0.25, { Position = UDim2.new(0.5, 0, 0, -75), BackgroundTransparency = 1 }, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+        tw.Completed:Connect(function()
+            if modal and modal.Parent then modal:Destroy() end
+            if ActiveDiscordNotification == modal then ActiveDiscordNotification = nil end
+        end)
+    end
+    task.delay(duration, Dismiss)
 end
 
-for _, value6 in pairs(players:GetPlayers()) do
-  f7(value6)
+function StarHubUI:CreateWindow(cfg)
+    cfg = cfg or {}
+    local WinTitle = cfg.Title or "StarHub"
+    local WinSubTitle = cfg.SubTitle or ""
+    local WinSize = cfg.Size or UDim2.new(0, 520, 0, 360)
+    local ToggleKey = Enum.KeyCode.RightControl
+    pcall(function()
+        if StarHubUI.Settings.ToggleKey then ToggleKey = Enum.KeyCode[StarHubUI.Settings.ToggleKey] or ToggleKey end
+    end)
+    local ResolvedLogo = LoadCustomImage(cfg.Logo or StarHubUI.Settings.CustomLogoUrl, StarHubUI.Icons.Logo)
+
+    local GuiParent = GetSafeGuiParent()
+    local old = GuiParent:FindFirstChild("StarHubUI_Host")
+    if old then old:Destroy() end
+
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "StarHubUI_Host"
+    ScreenGui.ResetOnSpawn = false
+    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    ScreenGui.Parent = GuiParent
+
+    local MainWindow = Instance.new("Frame", ScreenGui)
+    MainWindow.Name = "MainWindow"
+    MainWindow.Size = WinSize
+    MainWindow.Position = UDim2.new(0.5, -WinSize.X.Offset / 2, 0.5, -WinSize.Y.Offset / 2)
+    MainWindow.BackgroundColor3 = Theme.Background
+    MainWindow.BackgroundTransparency = StarHubUI.Settings.WindowTransparency
+    MainWindow.BorderSizePixel = 0
+    Instance.new("UICorner", MainWindow).CornerRadius = UDim.new(0, 16)
+    local MainStroke = Instance.new("UIStroke", MainWindow)
+    MainStroke.Color = Theme.Border
+    MainStroke.Thickness = 1.2
+    RegisterElement("Backgrounds", MainWindow)
+    RegisterElement("Borders", MainStroke)
+    StarHubUI.CurrentMainWindow = MainWindow
+
+    local winScale = Instance.new("UIScale", MainWindow)
+    local function UpdateScale()
+        local cam = workspace.CurrentCamera
+        if not cam then return end
+        local vp = cam.ViewportSize
+        local isTouch = UserInputService.TouchEnabled and not (UserInputService.KeyboardEnabled and UserInputService.MouseEnabled)
+        if isTouch or vp.X < 920 or vp.Y < 560 then
+            winScale.Scale = math.clamp(math.min((vp.X * 0.94) / 520, (vp.Y * 0.92) / 360), 0.55, 0.92)
+        else
+            winScale.Scale = 1
+        end
+    end
+    UpdateScale()
+    if workspace.CurrentCamera then workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(UpdateScale) end
+
+    local FxCanvas = Instance.new("Frame", MainWindow)
+    FxCanvas.Name = "FxCanvas"
+    FxCanvas.Size = UDim2.new(1, 0, 1, 0)
+    FxCanvas.BackgroundTransparency = 1
+    FxCanvas.ClipsDescendants = true
+    FxCanvas.ZIndex = 0
+    Instance.new("UICorner", FxCanvas).CornerRadius = UDim.new(0, 16)
+
+    local BubbleCanvas = Instance.new("Frame", FxCanvas)
+    BubbleCanvas.Size = UDim2.new(1, 0, 1, 0)
+    BubbleCanvas.BackgroundTransparency = 1
+    BubbleCanvas.ZIndex = 0
+
+    local bubbles = {}
+    for i = 1, 16 do
+        local sz = math.random(14, 38)
+        local b = Instance.new("Frame", BubbleCanvas)
+        b.Size = UDim2.new(0, sz, 0, sz)
+        b.AnchorPoint = Vector2.new(0.5, 0.5)
+        local startX = math.random(4, 96) / 100
+        b.Position = UDim2.new(startX, 0, math.random(5, 105) / 100, 0)
+        b.BackgroundColor3 = Theme.AccentLight
+        b.BackgroundTransparency = math.random(88, 94) / 100
+        b.BorderSizePixel = 0
+        b.ZIndex = 0
+        Instance.new("UICorner", b).CornerRadius = UDim.new(1, 0)
+        RegisterElement("Accents", b)
+        table.insert(bubbles, { Obj = b, Speed = math.random(18, 36) / 100, BaseX = startX })
+    end
+
+    RunService.RenderStepped:Connect(function()
+        if not MainWindow.Visible then return end
+        local h = MainWindow.AbsoluteSize.Y
+        if h <= 0 then h = 485 end
+        local t = tick()
+        for _, bData in ipairs(bubbles) do
+            local newY = bData.Obj.Position.Y.Scale - (bData.Speed / h)
+            if newY < -0.08 then newY = 1.05 end
+            bData.Obj.Position = UDim2.new(bData.BaseX + math.sin(t * 1.5) * 0.01, 0, newY, 0)
+        end
+    end)
+
+    local function AttachDrag(handle, target)
+        target = target or MainWindow
+        local dragging, dragStart, startPos
+        handle.InputBegan:Connect(function(inp)
+            if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
+                dragging = true
+                dragStart = inp.Position
+                startPos = target.Position
+                inp.Changed:Connect(function()
+                    if inp.UserInputState == Enum.UserInputState.End then dragging = false end
+                end)
+            end
+        end)
+        UserInputService.InputChanged:Connect(function(inp)
+            if dragging and (inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch) then
+                local delta = inp.Position - dragStart
+                target.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            end
+        end)
+    end
+
+    local Header = Instance.new("Frame", MainWindow)
+    Header.Size = UDim2.new(1, 0, 0, 44)
+    Header.BackgroundTransparency = 1
+    AttachDrag(Header)
+
+    local TrafficContainer = Instance.new("Frame", Header)
+    TrafficContainer.Size = UDim2.new(0, 60, 1, 0)
+    TrafficContainer.Position = UDim2.new(0, 14, 0, 0)
+    TrafficContainer.BackgroundTransparency = 1
+    local tcLayout = Instance.new("UIListLayout", TrafficContainer)
+    tcLayout.FillDirection = Enum.FillDirection.Horizontal
+    tcLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+    tcLayout.Padding = UDim.new(0, 7)
+
+    local function MakeDot(col, hovCol, fn)
+        local d = Instance.new("TextButton", TrafficContainer)
+        d.Size = UDim2.new(0, 12, 0, 12)
+        d.BackgroundColor3 = col
+        d.Text = ""
+        d.AutoButtonColor = false
+        Instance.new("UICorner", d).CornerRadius = UDim.new(1, 0)
+        d.MouseEnter:Connect(function() Tween(d, 0.15, { BackgroundColor3 = hovCol }) end)
+        d.MouseLeave:Connect(function() Tween(d, 0.15, { BackgroundColor3 = col }) end)
+        d.MouseButton1Click:Connect(function()
+            PlaySound("Click")
+            MicroBounce(d)
+            fn()
+        end)
+        return d
+    end
+
+    local isMinimized = false
+    local function ToggleWindow(show)
+        if show == nil then show = not MainWindow.Visible end
+        if show then
+            MainWindow.Visible = true
+            winScale.Scale = 0.8
+            MainWindow.Position = UDim2.new(0.5, -WinSize.X.Offset / 2, 0.5, -WinSize.Y.Offset / 2)
+            MainWindow.Size = isMinimized and UDim2.new(0, WinSize.X.Offset, 0, 44) or WinSize
+            PlaySound("ToggleOn")
+            Tween(winScale, 0.35, { Scale = 1 }, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+        else
+            PlaySound("ToggleOff")
+            local tw = Tween(winScale, 0.22, { Scale = 0.8 }, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+            tw.Completed:Connect(function()
+                MainWindow.Visible = false
+                winScale.Scale = 1
+            end)
+        end
+    end
+
+    MakeDot(Color3.fromRGB(255, 95, 87), Color3.fromRGB(255, 130, 120), function() ToggleWindow(false) end)
+    MakeDot(Color3.fromRGB(254, 188, 46), Color3.fromRGB(255, 215, 80), function()
+        isMinimized = not isMinimized
+        PlaySound(isMinimized and "ToggleOff" or "ToggleOn")
+        Tween(MainWindow, 0.25, { Size = isMinimized and UDim2.new(0, WinSize.X.Offset, 0, 44) or WinSize }, Enum.EasingStyle.Quart)
+    end)
+    MakeDot(Color3.fromRGB(39, 201, 63), Color3.fromRGB(75, 235, 100), function()
+        PlaySound("Click")
+        Tween(MainWindow, 0.32, { Position = UDim2.new(0.5, -WinSize.X.Offset / 2, 0.5, -WinSize.Y.Offset / 2) }, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+    end)
+
+    local TitleLabel = Instance.new("TextLabel", Header)
+    TitleLabel.AutomaticSize = Enum.AutomaticSize.X
+    TitleLabel.Size = UDim2.new(0, 0, 0, 16)
+    TitleLabel.Position = UDim2.new(1, -18, 0, 8)
+    TitleLabel.AnchorPoint = Vector2.new(1, 0)
+    TitleLabel.BackgroundTransparency = 1
+    TitleLabel.Font = Enum.Font.GothamBold
+    TitleLabel.TextSize = 13
+    TitleLabel.TextColor3 = Theme.TextTitle
+    TitleLabel.TextXAlignment = Enum.TextXAlignment.Right
+    TitleLabel.Text = WinTitle
+
+    local SubLabel = Instance.new("TextLabel", Header)
+    SubLabel.AutomaticSize = Enum.AutomaticSize.X
+    SubLabel.Size = UDim2.new(0, 0, 0, 12)
+    SubLabel.Position = UDim2.new(1, -18, 0, 24)
+    SubLabel.AnchorPoint = Vector2.new(1, 0)
+    SubLabel.BackgroundTransparency = 1
+    SubLabel.Font = Enum.Font.Gotham
+    SubLabel.TextSize = 9.5
+    SubLabel.TextColor3 = Theme.TextDim
+    SubLabel.TextXAlignment = Enum.TextXAlignment.Right
+    SubLabel.Text = WinSubTitle
+
+    local BodyContainer = Instance.new("Frame", MainWindow)
+    BodyContainer.Size = UDim2.new(1, 0, 1, -44)
+    BodyContainer.Position = UDim2.new(0, 0, 0, 44)
+    BodyContainer.BackgroundTransparency = 1
+
+    local Sidebar = Instance.new("Frame", BodyContainer)
+    Sidebar.Size = UDim2.new(0, 175, 1, 0)
+    Sidebar.BackgroundColor3 = Theme.Sidebar
+    Sidebar.BorderSizePixel = 0
+    Instance.new("UICorner", Sidebar).CornerRadius = UDim.new(0, 16)
+    RegisterElement("Sidebars", Sidebar)
+
+    local LogoHolder = Instance.new("Frame", Sidebar)
+    LogoHolder.Size = UDim2.new(1, 0, 0, 94)
+    LogoHolder.Position = UDim2.new(0, 0, 0, 6)
+    LogoHolder.BackgroundTransparency = 1
+
+    local Brand = Instance.new("ImageLabel", LogoHolder)
+    Brand.Size = UDim2.new(0, 74, 0, 74)
+    Brand.Position = UDim2.new(0.5, -37, 0.5, -37)
+    Brand.BackgroundColor3 = Theme.Box
+    Brand.Image = ResolvedLogo
+    Brand.ScaleType = Enum.ScaleType.Fit
+    Instance.new("UICorner", Brand).CornerRadius = UDim.new(0, 20)
+    RegisterElement("Boxes", Brand)
+
+    local NavScroll = Instance.new("ScrollingFrame", Sidebar)
+    NavScroll.Size = UDim2.new(1, -8, 1, -110)
+    NavScroll.Position = UDim2.new(0, 4, 0, 100)
+    NavScroll.BackgroundTransparency = 1
+    NavScroll.BorderSizePixel = 0
+    NavScroll.ScrollBarThickness = 2
+    NavScroll.ScrollBarImageColor3 = Theme.Border
+    NavScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    local navLayout = Instance.new("UIListLayout", NavScroll)
+    navLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    navLayout.Padding = UDim.new(0, 4)
+    local navPad = Instance.new("UIPadding", NavScroll)
+    navPad.PaddingLeft = UDim.new(0, 4)
+    navPad.PaddingRight = UDim.new(0, 4)
+    navPad.PaddingTop = UDim.new(0, 4)
+    navPad.PaddingBottom = UDim.new(0, 12)
+
+    local ContentArea = Instance.new("Frame", BodyContainer)
+    ContentArea.Size = UDim2.new(1, -175, 1, 0)
+    ContentArea.Position = UDim2.new(0, 175, 0, 0)
+    ContentArea.BackgroundTransparency = 1
+
+    local WindowObj = { ScreenGui = ScreenGui, MainWindow = MainWindow, Tabs = {}, ActiveTab = nil, Keybind = ToggleKey }
+    StarHubUI.CurrentWindowObj = WindowObj
+
+    function WindowObj:Notify(c) StarHubUI:Notify(c) end
+
+    UserInputService.InputBegan:Connect(function(inp, gpe)
+        if not gpe and inp.KeyCode == WindowObj.Keybind then
+            if StarHubUI.Settings.KeybindMode == "Toggle" then ToggleWindow()
+            elseif StarHubUI.Settings.KeybindMode == "Hold" then ToggleWindow(true) end
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(inp, gpe)
+        if not gpe and inp.KeyCode == WindowObj.Keybind and StarHubUI.Settings.KeybindMode == "Hold" then
+            ToggleWindow(false)
+        end
+    end)
+
+    function WindowObj:AddNavHeader(titleText, order)
+        local h = Instance.new("TextLabel", NavScroll)
+        h.Size = UDim2.new(1, -4, 0, 20)
+        h.BackgroundTransparency = 1
+        h.Font = Enum.Font.GothamBold
+        h.TextSize = 9
+        h.TextColor3 = Theme.TextDim
+        h.TextXAlignment = Enum.TextXAlignment.Left
+        h.Text = string.upper(titleText)
+        h.LayoutOrder = order or 1
+    end
+
+    function WindowObj:CreateTab(tabConfig)
+        tabConfig = tabConfig or {}
+        local TabTitle = tabConfig.Title or "Tab"
+        local TabIcon = tabConfig.IconId or StarHubUI.Icons.Dashboard
+        local LayoutOrder = tabConfig.LayoutOrder or (#WindowObj.Tabs + 5)
+
+        local Page = Instance.new("ScrollingFrame", ContentArea)
+        Page.Size = UDim2.new(1, 0, 1, 0)
+        Page.BackgroundTransparency = 1
+        Page.BorderSizePixel = 0
+        Page.ScrollBarThickness = 2
+        Page.ScrollBarImageColor3 = Theme.Border
+        Page.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        Page.Visible = false
+        local pagePad = Instance.new("UIPadding", Page)
+        pagePad.PaddingLeft = UDim.new(0, 10)
+        pagePad.PaddingRight = UDim.new(0, 10)
+        pagePad.PaddingTop = UDim.new(0, 10)
+        pagePad.PaddingBottom = UDim.new(0, 20)
+        local pageLayout = Instance.new("UIListLayout", Page)
+        pageLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        pageLayout.Padding = UDim.new(0, 10)
+
+        local TopContainer = Instance.new("Frame", Page)
+        TopContainer.Size = UDim2.new(1, 0, 0, 0)
+        TopContainer.BackgroundTransparency = 1
+        TopContainer.AutomaticSize = Enum.AutomaticSize.Y
+        TopContainer.LayoutOrder = 1
+        local topLayout = Instance.new("UIListLayout", TopContainer)
+        topLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        topLayout.Padding = UDim.new(0, 8)
+
+        local Columns = Instance.new("Frame", Page)
+        Columns.Size = UDim2.new(1, 0, 0, 0)
+        Columns.BackgroundTransparency = 1
+        Columns.AutomaticSize = Enum.AutomaticSize.Y
+        Columns.LayoutOrder = 2
+        local LeftCol = Instance.new("Frame", Columns)
+        LeftCol.Size = UDim2.new(0.488, 0, 0, 0)
+        LeftCol.BackgroundTransparency = 1
+        LeftCol.AutomaticSize = Enum.AutomaticSize.Y
+        local leftLayout = Instance.new("UIListLayout", LeftCol)
+        leftLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        leftLayout.Padding = UDim.new(0, 10)
+        local RightCol = Instance.new("Frame", Columns)
+        RightCol.Size = UDim2.new(0.488, 0, 0, 0)
+        RightCol.Position = UDim2.new(0.512, 0, 0, 0)
+        RightCol.BackgroundTransparency = 1
+        RightCol.AutomaticSize = Enum.AutomaticSize.Y
+        local rightLayout = Instance.new("UIListLayout", RightCol)
+        rightLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        rightLayout.Padding = UDim.new(0, 10)
+
+        local TabBtn = Instance.new("TextButton", NavScroll)
+        TabBtn.Size = UDim2.new(1, 0, 0, 38)
+        TabBtn.BackgroundColor3 = Theme.SubBox
+        TabBtn.BackgroundTransparency = 0.85
+        TabBtn.Text = ""
+        TabBtn.AutoButtonColor = false
+        TabBtn.LayoutOrder = LayoutOrder
+        Instance.new("UICorner", TabBtn).CornerRadius = UDim.new(0, 10)
+        local tabStroke = Instance.new("UIStroke", TabBtn)
+        tabStroke.Color = Theme.Border
+        tabStroke.Thickness = 1
+        tabStroke.Transparency = 0.75
+        RegisterElement("Borders", tabStroke)
+
+        local tIcon = Instance.new("ImageLabel", TabBtn)
+        tIcon.Size = UDim2.new(0, 15, 0, 15)
+        tIcon.Position = UDim2.new(0, 13, 0.5, -7.5)
+        tIcon.BackgroundTransparency = 1
+        tIcon.Image = TabIcon
+        tIcon.ImageColor3 = Theme.TextDim
+
+        local tName = Instance.new("TextLabel", TabBtn)
+        tName.Size = UDim2.new(1, -45, 1, 0)
+        tName.Position = UDim2.new(0, 40, 0, 0)
+        tName.BackgroundTransparency = 1
+        tName.Font = Enum.Font.GothamMedium
+        tName.TextSize = 11.5
+        tName.TextColor3 = Theme.TextDim
+        tName.TextXAlignment = Enum.TextXAlignment.Left
+        tName.TextTruncate = Enum.TextTruncate.AtEnd
+        tName.Text = TabTitle
+
+        local TabObj = { Page = Page, Button = TabBtn, Title = TabTitle, TopContainer = TopContainer, Columns = Columns, LeftCol = LeftCol, RightCol = RightCol }
+
+        TabBtn.MouseEnter:Connect(function()
+            if WindowObj.ActiveTab ~= TabObj then Tween(TabBtn, 0.15, { BackgroundTransparency = 0.5 }) end
+        end)
+        TabBtn.MouseLeave:Connect(function()
+            if WindowObj.ActiveTab ~= TabObj then Tween(TabBtn, 0.15, { BackgroundTransparency = 0.85 }) end
+        end)
+
+        local function Activate()
+            if WindowObj.ActiveTab == TabObj then return end
+            PlaySound("TabSwitch")
+            MicroBounce(TabBtn)
+            for _, t in ipairs(WindowObj.Tabs) do
+                t.Page.Visible = false
+                t.Button.BackgroundTransparency = 0.85
+                t.Button.BackgroundColor3 = Theme.SubBox
+            end
+            WindowObj.ActiveTab = TabObj
+            Page.Position = UDim2.new(0, 0, 0, 6)
+            Page.Visible = true
+            Tween(Page, 0.22, { Position = UDim2.new(0, 0, 0, 0) }, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+            TabBtn.BackgroundColor3 = Theme.Accent
+            TabBtn.BackgroundTransparency = 0.2
+        end
+        TabBtn.MouseButton1Click:Connect(Activate)
+        TabObj.Activate = Activate
+        table.insert(WindowObj.Tabs, TabObj)
+        if #WindowObj.Tabs == 1 then Activate() end
+
+        function TabObj:CreateGroupBox(side, titleText, badgeText, iconIdOpt)
+            local targetCol = (side == "Right") and RightCol or LeftCol
+            local BoxCard = Instance.new("Frame", targetCol)
+            BoxCard.Size = UDim2.new(1, 0, 0, 36)
+            BoxCard.BackgroundColor3 = Theme.Box
+            BoxCard.BorderSizePixel = 0
+            BoxCard.AutomaticSize = Enum.AutomaticSize.Y
+            Instance.new("UICorner", BoxCard).CornerRadius = UDim.new(0, 12)
+            local bStroke = Instance.new("UIStroke", BoxCard)
+            bStroke.Color = Theme.Border
+            bStroke.Thickness = 1
+            RegisterElement("Boxes", BoxCard)
+            RegisterElement("Borders", bStroke)
+
+            local BoxHeader = Instance.new("Frame", BoxCard)
+            BoxHeader.Size = UDim2.new(1, 0, 0, 34)
+            BoxHeader.BackgroundTransparency = 1
+
+            local bIcon = Instance.new("ImageLabel", BoxHeader)
+            bIcon.Size = UDim2.new(0, 14, 0, 14)
+            bIcon.Position = UDim2.new(0, 12, 0.5, -7)
+            bIcon.BackgroundTransparency = 1
+            bIcon.Image = iconIdOpt or StarHubUI.Icons.Logo
+            bIcon.ImageColor3 = Theme.AccentLight
+            RegisterElement("Accents", bIcon)
+
+            local bTitle = Instance.new("TextLabel", BoxHeader)
+            bTitle.Size = UDim2.new(1, badgeText and -105 or -40, 1, 0)
+            bTitle.Position = UDim2.new(0, 32, 0, 0)
+            bTitle.BackgroundTransparency = 1
+            bTitle.Font = Enum.Font.GothamBold
+            bTitle.TextSize = 10.5
+            bTitle.TextColor3 = Theme.TextTitle
+            bTitle.TextXAlignment = Enum.TextXAlignment.Left
+            bTitle.Text = string.upper(titleText)
+
+            if badgeText then
+                local bBadge = Instance.new("TextLabel", BoxHeader)
+                bBadge.Size = UDim2.new(0, 65, 0, 18)
+                bBadge.Position = UDim2.new(1, -73, 0.5, -9)
+                bBadge.BackgroundColor3 = Theme.SubBox
+                bBadge.Font = Enum.Font.GothamBold
+                bBadge.TextSize = 8.5
+                bBadge.TextColor3 = Theme.Success
+                bBadge.Text = string.upper(badgeText)
+                Instance.new("UICorner", bBadge).CornerRadius = UDim.new(1, 0)
+            end
+
+            local Container = Instance.new("Frame", BoxCard)
+            Container.Size = UDim2.new(1, 0, 0, 0)
+            Container.Position = UDim2.new(0, 0, 0, 34)
+            Container.BackgroundTransparency = 1
+            Container.AutomaticSize = Enum.AutomaticSize.Y
+            local cLayout = Instance.new("UIListLayout", Container)
+            cLayout.SortOrder = Enum.SortOrder.LayoutOrder
+            cLayout.Padding = UDim.new(0, 7)
+            local cPad = Instance.new("UIPadding", Container)
+            cPad.PaddingLeft = UDim.new(0, 12)
+            cPad.PaddingRight = UDim.new(0, 12)
+            cPad.PaddingTop = UDim.new(0, 8)
+            cPad.PaddingBottom = UDim.new(0, 12)
+
+            local BoxObj = { Card = BoxCard, Container = Container }
+
+            function BoxObj:AddToggle(title, desc, defaultVal, callback)
+                callback = callback or function() end
+                local state = defaultVal or false
+                local row = Instance.new("Frame", Container)
+                row.Size = UDim2.new(1, 0, 0, 0)
+                row.BackgroundTransparency = 1
+                row.AutomaticSize = Enum.AutomaticSize.Y
+
+                local textCol = Instance.new("Frame", row)
+                textCol.Size = UDim2.new(1, -52, 0, 0)
+                textCol.BackgroundTransparency = 1
+                textCol.AutomaticSize = Enum.AutomaticSize.Y
+                local tLbl = Instance.new("TextLabel", textCol)
+                tLbl.Size = UDim2.new(1, 0, 0, 0)
+                tLbl.BackgroundTransparency = 1
+                tLbl.Font = Enum.Font.GothamMedium
+                tLbl.TextSize = 11
+                tLbl.TextColor3 = Theme.TextBody
+                tLbl.TextXAlignment = Enum.TextXAlignment.Left
+                tLbl.TextWrapped = true
+                tLbl.AutomaticSize = Enum.AutomaticSize.Y
+                tLbl.Text = title
+                if desc then
+                    local dLbl = Instance.new("TextLabel", textCol)
+                    dLbl.Size = UDim2.new(1, 0, 0, 0)
+                    dLbl.BackgroundTransparency = 1
+                    dLbl.Font = Enum.Font.Gotham
+                    dLbl.TextSize = 9.5
+                    dLbl.TextColor3 = Theme.TextDim
+                    dLbl.TextXAlignment = Enum.TextXAlignment.Left
+                    dLbl.TextWrapped = true
+                    dLbl.AutomaticSize = Enum.AutomaticSize.Y
+                    dLbl.Text = desc
+                end
+
+                local Pill = Instance.new("TextButton", row)
+                Pill.Size = UDim2.new(0, 38, 0, 20)
+                Pill.AnchorPoint = Vector2.new(1, 0.5)
+                Pill.Position = UDim2.new(1, 0, 0.5, 0)
+                Pill.BackgroundColor3 = state and Theme.Accent or Theme.SubBox
+                Pill.Text = ""
+                Pill.AutoButtonColor = false
+                Instance.new("UICorner", Pill).CornerRadius = UDim.new(1, 0)
+
+                local Knob = Instance.new("Frame", Pill)
+                Knob.Size = UDim2.new(0, 14, 0, 14)
+                Knob.Position = state and UDim2.new(1, -17, 0.5, -7) or UDim2.new(0, 3, 0.5, -7)
+                Knob.BackgroundColor3 = Color3.new(1, 1, 1)
+                Instance.new("UICorner", Knob).CornerRadius = UDim.new(1, 0)
+
+                local function Set(v)
+                    state = v
+                    PlaySound(state and "ToggleOn" or "ToggleOff")
+                    MicroBounce(Pill)
+                    Pill.BackgroundColor3 = state and Theme.Accent or Theme.SubBox
+                    Tween(Knob, 0.2, { Position = state and UDim2.new(1, -17, 0.5, -7) or UDim2.new(0, 3, 0.5, -7) })
+                    pcall(callback, state)
+                end
+                Pill.MouseButton1Click:Connect(function() Set(not state) end)
+                return { Set = Set, Get = function() return state end }
+            end
+
+            function BoxObj:AddActionRow(title, subtitle, iconAsset, callback)
+                callback = callback or function() end
+                local row = Instance.new("TextButton", Container)
+                row.Size = UDim2.new(1, 0, 0, 0)
+                row.AutomaticSize = Enum.AutomaticSize.Y
+                row.BackgroundColor3 = Theme.SubBox
+                row.Text = ""
+                row.AutoButtonColor = false
+                Instance.new("UICorner", row).CornerRadius = UDim.new(0, 10)
+                local rPad = Instance.new("UIPadding", row)
+                rPad.PaddingLeft = UDim.new(0, 10)
+                rPad.PaddingRight = UDim.new(0, 30)
+                rPad.PaddingTop = UDim.new(0, 6)
+                rPad.PaddingBottom = UDim.new(0, 6)
+                local rLayout = Instance.new("UIListLayout", row)
+                rLayout.SortOrder = Enum.SortOrder.LayoutOrder
+                rLayout.Padding = UDim.new(0, 2)
+
+                local tLbl = Instance.new("TextLabel", row)
+                tLbl.Size = UDim2.new(1, 0, 0, 0)
+                tLbl.BackgroundTransparency = 1
+                tLbl.Font = Enum.Font.GothamBold
+                tLbl.TextSize = 10.5
+                tLbl.TextColor3 = Theme.TextTitle
+                tLbl.TextXAlignment = Enum.TextXAlignment.Left
+                tLbl.TextWrapped = true
+                tLbl.AutomaticSize = Enum.AutomaticSize.Y
+                tLbl.Text = title
+
+                if subtitle and subtitle ~= "" then
+                    local sLbl = Instance.new("TextLabel", row)
+                    sLbl.Size = UDim2.new(1, 0, 0, 0)
+                    sLbl.BackgroundTransparency = 1
+                    sLbl.Font = Enum.Font.Gotham
+                    sLbl.TextSize = 8.5
+                    sLbl.TextColor3 = Theme.TextDim
+                    sLbl.TextXAlignment = Enum.TextXAlignment.Left
+                    sLbl.TextWrapped = true
+                    sLbl.AutomaticSize = Enum.AutomaticSize.Y
+                    sLbl.Text = subtitle
+                end
+
+                local ic = Instance.new("ImageLabel", row)
+                ic.Size = UDim2.new(0, 14, 0, 14)
+                ic.AnchorPoint = Vector2.new(1, 0.5)
+                ic.Position = UDim2.new(1, 22, 0.5, 0)
+                ic.BackgroundTransparency = 1
+                ic.Image = iconAsset or StarHubUI.Icons.Copy
+                ic.ImageColor3 = Theme.AccentLight
+                RegisterElement("Accents", ic)
+
+                row.MouseButton1Click:Connect(function()
+                    PlaySound("Click")
+                    MicroBounce(row)
+                    pcall(callback)
+                end)
+                return row
+            end
+
+            function BoxObj:AddModeSelector(name, modes, defaultMode, callback)
+                local row = Instance.new("Frame", Container)
+                row.Size = UDim2.new(1, 0, 0, 0)
+                row.AutomaticSize = Enum.AutomaticSize.Y
+                row.BackgroundTransparency = 1
+                local rLayout = Instance.new("UIListLayout", row)
+                rLayout.SortOrder = Enum.SortOrder.LayoutOrder
+                rLayout.Padding = UDim.new(0, 4)
+
+                local lbl = Instance.new("TextLabel", row)
+                lbl.Size = UDim2.new(1, 0, 0, 14)
+                lbl.BackgroundTransparency = 1
+                lbl.Font = Enum.Font.GothamBold
+                lbl.TextSize = 9.5
+                lbl.TextColor3 = Theme.TextDim
+                lbl.TextXAlignment = Enum.TextXAlignment.Left
+                lbl.Text = string.upper(name)
+                lbl.LayoutOrder = 1
+
+                local btnRow = Instance.new("Frame", row)
+                btnRow.Size = UDim2.new(1, 0, 0, 26)
+                btnRow.BackgroundTransparency = 1
+                btnRow.LayoutOrder = 2
+                local bLayout = Instance.new("UIListLayout", btnRow)
+                bLayout.FillDirection = Enum.FillDirection.Horizontal
+                bLayout.Padding = UDim.new(0, 6)
+
+                local active = defaultMode or modes[1]
+                local modeButtons = {}
+                local function Refresh()
+                    for m, data in pairs(modeButtons) do
+                        local isAct = (m == active)
+                        data.Btn.BackgroundColor3 = isAct and Theme.Accent or Theme.SubBox
+                        data.Btn.TextColor3 = isAct and Color3.new(1, 1, 1) or Theme.TextDim
+                    end
+                end
+                for _, m in ipairs(modes) do
+                    local b = Instance.new("TextButton", btnRow)
+                    b.Size = UDim2.new(1 / #modes, -((#modes - 1) * 6) / #modes, 1, 0)
+                    b.Text = m
+                    b.Font = Enum.Font.GothamBold
+                    b.TextSize = 9.5
+                    b.TextScaled = true
+                    b.AutoButtonColor = false
+                    Instance.new("UICorner", b).CornerRadius = UDim.new(1, 0)
+                    modeButtons[m] = { Btn = b }
+                    b.MouseButton1Click:Connect(function()
+                        PlaySound("Click")
+                        active = m
+                        Refresh()
+                        pcall(callback, m)
+                    end)
+                end
+                Refresh()
+                table.insert(ThemeRegistry.ModeSelectors, Refresh)
+            end
+
+            return BoxObj
+        end
+
+        return TabObj
+    end
+
+    return WindowObj
 end
 
-players.PlayerAdded:Connect(f7)
+getgenv().StarHubUI = StarHubUI
+_G.StarHubUI = StarHubUI
 
--- https://leakd.fr
+return StarHubUI
